@@ -14,18 +14,30 @@ export default function Home() {
   const [isGettingLocation, setIsGettingLocation] = useState(false);
   const [routePath, setRoutePath] = useState<any>(null);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [mapInstance, setMapInstance] = useState<any>(null);
+  const [showRouteLines, setShowRouteLines] = useState(false);
 
   const getCurrentLocation = () => {
     setIsGettingLocation(true);
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setCurrentLocation({
+          const newLocation = {
             lat: position.coords.latitude,
             lon: position.coords.longitude,
             accuracy: position.coords.accuracy
-          });
+          };
+          setCurrentLocation(newLocation);
           setIsGettingLocation(false);
+
+          // Focus map to current location
+          if (mapInstance) {
+            mapInstance.location({
+              lon: newLocation.lon,
+              lat: newLocation.lat
+            }, true);
+            mapInstance.zoom(15, true);
+          }
         },
         (error) => {
           console.error('Error getting location:', error);
@@ -64,11 +76,23 @@ export default function Home() {
   const handleRemoveLocation = (index: number) => {
     setLocations(locations.filter((_, i) => i !== index));
     setRoutePath(null);
+    setShowRouteLines(false);
   };
 
   const handleClearAll = () => {
     setLocations([]);
     setRoutePath(null);
+    setShowRouteLines(false);
+  };
+
+  const handleFocusLocation = (location: Location) => {
+    if (mapInstance) {
+      mapInstance.location({
+        lon: location.lon,
+        lat: location.lat
+      }, true);
+      mapInstance.zoom(17, true);
+    }
   };
 
   const handleCalculateRoute = async () => {
@@ -92,6 +116,7 @@ export default function Home() {
             order: index + 1
           }));
           setLocations(orderedWithNumbers);
+          setShowRouteLines(true);
         }
 
         // Set route path if available
@@ -112,7 +137,7 @@ export default function Home() {
       <div className="container mx-auto px-4 py-6">
         <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
           FindAdd V1.0
-          <br/>
+          <br />
           ระบบจัดเส้นทางส่งพัสดุ
         </h1>
 
@@ -157,6 +182,7 @@ export default function Home() {
               onClearAll={handleClearAll}
               onCalculateRoute={handleCalculateRoute}
               isCalculatingRoute={isCalculatingRoute}
+              onFocusLocation={handleFocusLocation}
             />
           </div>
 
@@ -167,6 +193,8 @@ export default function Home() {
               selectedProvince={selectedProvince}
               routePath={routePath}
               currentLocation={currentLocation}
+              onMapReady={setMapInstance}
+              showRouteLines={showRouteLines}
             />
           </div>
 
@@ -188,7 +216,7 @@ export default function Home() {
             </p>
             <p className="mt-1 text-xs text-gray-500">
               © 2025 FindAdd V1.0 - ระบบจัดเส้นทางส่งพัสดุ
-              <br/>
+              <br />
               Powered by Longdo Map API
             </p>
           </div>

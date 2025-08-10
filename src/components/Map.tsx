@@ -14,15 +14,18 @@ interface MapProps {
     selectedProvince: Province | null;
     routePath?: any;
     currentLocation?: CurrentLocation | null;
+    onMapReady?: (mapInstance: any) => void;
+    showRouteLines?: boolean;
 }
 
-export default function Map({ locations, selectedProvince, routePath, currentLocation }: MapProps) {
+export default function Map({ locations, selectedProvince, routePath, currentLocation, onMapReady, showRouteLines }: MapProps) {
     const mapContainer = useRef<HTMLDivElement>(null);
     const mapInstance = useRef<any>(null);
     const markersRef = useRef<any[]>([]);
     const routeLineRef = useRef<any>(null);
     const [isMapLoaded, setIsMapLoaded] = useState(false);
     const currentLocationMarkerRef = useRef<any>(null);
+    const routeLinesRef = useRef<any[]>([]);
 
     // Initialize map
     useEffect(() => {
@@ -43,6 +46,9 @@ export default function Map({ locations, selectedProvince, routePath, currentLoc
                     }
                 });
                 setIsMapLoaded(true);
+                if (onMapReady) {
+                    onMapReady(mapInstance.current);
+                }
             }
         };
 
@@ -167,6 +173,43 @@ export default function Map({ locations, selectedProvince, routePath, currentLoc
             mapInstance.current.zoom(zoom, true);
         }
     }, [locations, isMapLoaded]);
+
+    // Draw connecting lines between points
+    useEffect(() => {
+        if (!mapInstance.current || !isMapLoaded) return;
+
+        // Clear existing lines
+        routeLinesRef.current.forEach(line => {
+            mapInstance.current.Overlays.remove(line);
+        });
+        routeLinesRef.current = [];
+
+        // Draw new lines if showRouteLines is true and we have ordered locations
+        if (showRouteLines && locations.length > 1) {
+            // Sort locations by order if they have order property
+            const sortedLocations = [...locations].sort((a, b) => {
+                if (a.order && b.order) return a.order - b.order;
+                return 0;
+            });
+
+            // Draw lines between consecutive points
+            for (let i = 0; i < sortedLocations.length - 1; i++) {
+                const line = new window.longdo.Polyline(
+                    [
+                        { lon: sortedLocations[i].lon, lat: sortedLocations[i].lat },
+                        { lon: sortedLocations[i + 1].lon, lat: sortedLocations[i + 1].lat }
+                    ],
+                    {
+                        lineWidth: 3,
+                        lineColor: 'rgba(59, 130, 246, 0.6)', // Blue color with transparency
+                        lineStyle: window.longdo.LineStyle.Dashed
+                    }
+                );
+                mapInstance.current.Overlays.add(line);
+                routeLinesRef.current.push(line);
+            }
+        }
+    }, [locations, showRouteLines, isMapLoaded]);
 
     // Draw route
     useEffect(() => {

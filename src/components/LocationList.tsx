@@ -8,6 +8,7 @@ interface LocationListProps {
   onClearAll: () => void;
   onCalculateRoute: () => void;
   isCalculatingRoute: boolean;
+  onFocusLocation: (location: Location) => void;
 }
 
 export default function LocationList({
@@ -15,7 +16,8 @@ export default function LocationList({
   onRemoveLocation,
   onClearAll,
   onCalculateRoute,
-  isCalculatingRoute
+  isCalculatingRoute,
+  onFocusLocation
 }: LocationListProps) {
   const handleNavigate = (location: Location) => {
     const url = `https://www.google.com/maps/dir/?api=1&destination=${location.lat},${location.lon}`;
@@ -57,7 +59,10 @@ export default function LocationList({
                         {location.order}
                       </span>
                     )}
-                    <div>
+                    <div
+                      className="cursor-pointer hover:text-blue-600"
+                      onClick={() => onFocusLocation(location)}
+                    >
                       <div className="font-medium">{location.name || `สถานที่ ${index + 1}`}</div>
                       {location.address && (
                         <div className="text-sm text-gray-600">{location.address}</div>
