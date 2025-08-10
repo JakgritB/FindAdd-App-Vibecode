@@ -1,103 +1,199 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect } from 'react';
+import Map from '@/components/Map';
+import SearchBar from '@/components/SearchBar';
+import LocationList from '@/components/LocationList';
+import ProvinceSelector from '@/components/ProvinceSelector';
+import { Location, SearchResult, Province, CurrentLocation } from '@/types';
 
 export default function Home() {
-  return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [selectedProvince, setSelectedProvince] = useState<Province | null>(null);
+  const [currentLocation, setCurrentLocation] = useState<CurrentLocation | null>(null);
+  const [isGettingLocation, setIsGettingLocation] = useState(false);
+  const [routePath, setRoutePath] = useState<any>(null);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  const getCurrentLocation = () => {
+    setIsGettingLocation(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setCurrentLocation({
+            lat: position.coords.latitude,
+            lon: position.coords.longitude,
+            accuracy: position.coords.accuracy
+          });
+          setIsGettingLocation(false);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          alert('ไม่สามารถระบุตำแหน่งได้ กรุณาเปิด GPS');
+          setIsGettingLocation(false);
+        },
+        { enableHighAccuracy: true }
+      );
+    } else {
+      alert('เบราว์เซอร์ไม่รองรับการระบุตำแหน่ง');
+      setIsGettingLocation(false);
+    }
+  };
+
+  useEffect(() => {
+    getCurrentLocation();
+  }, []);
+
+  const handleAddLocation = (result: SearchResult) => {
+    if (locations.length >= 100) {
+      alert('จำกัดสูงสุด 100 สถานที่');
+      return;
+    }
+
+    const newLocation: Location = {
+      lat: result.lat,
+      lon: result.lon,
+      id: result.id,
+      name: result.name,
+      address: result.address
+    };
+
+    setLocations([...locations, newLocation]);
+  };
+
+  const handleRemoveLocation = (index: number) => {
+    setLocations(locations.filter((_, i) => i !== index));
+    setRoutePath(null);
+  };
+
+  const handleClearAll = () => {
+    setLocations([]);
+    setRoutePath(null);
+  };
+
+  const handleCalculateRoute = async () => {
+    if (locations.length < 2) return;
+
+    setIsCalculatingRoute(true);
+    try {
+      const response = await fetch('/api/longdo/route', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ locations, currentLocation })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+
+        // Update locations with order
+        if (data.orderedLocations) {
+          const orderedWithNumbers = data.orderedLocations.map((loc: Location, index: number) => ({
+            ...loc,
+            order: index + 1
+          }));
+          setLocations(orderedWithNumbers);
+        }
+
+        // Set route path if available
+        if (data.route?.data?.route) {
+          setRoutePath(data.route.data.route);
+        }
+      }
+    } catch (error) {
+      console.error('Error calculating route:', error);
+      alert('เกิดข้อผิดพลาดในการคำนวณเส้นทาง');
+    } finally {
+      setIsCalculatingRoute(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen bg-gray-50">
+      <div className="container mx-auto px-4 py-6">
+        <h1 className="text-3xl font-bold text-center mb-6 text-gray-800">
+          FindAdd V1.0
+          <br/>
+          ระบบจัดเส้นทางส่งพัสดุ
+        </h1>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Left Panel */}
+          <div className="lg:col-span-1 space-y-4">
+            <ProvinceSelector
+              selectedProvince={selectedProvince}
+              onProvinceChange={setSelectedProvince}
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+
+            <div className="bg-white rounded-lg shadow-md p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex-1">
+                  <h4 className="font-medium">ตำแหน่งปัจจุบัน</h4>
+                  {currentLocation ? (
+                    <p className="text-sm text-gray-600">
+                      {currentLocation.lat.toFixed(6)}, {currentLocation.lon.toFixed(6)}
+                    </p>
+                  ) : (
+                    <p className="text-sm text-gray-500">ยังไม่ได้ระบุตำแหน่ง</p>
+                  )}
+                </div>
+                <button
+                  onClick={getCurrentLocation}
+                  disabled={isGettingLocation}
+                  className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 disabled:bg-gray-400"
+                >
+                  {isGettingLocation ? 'กำลังระบุ...' : 'ระบุตำแหน่ง'}
+                </button>
+              </div>
+            </div>
+
+            <SearchBar
+              selectedProvince={selectedProvince}
+              onAddLocation={handleAddLocation}
+            />
+
+            <LocationList
+              locations={locations}
+              onRemoveLocation={handleRemoveLocation}
+              onClearAll={handleClearAll}
+              onCalculateRoute={handleCalculateRoute}
+              isCalculatingRoute={isCalculatingRoute}
+            />
+          </div>
+
+          {/* Map */}
+          <div className="lg:col-span-2 h-[600px] lg:h-[800px]">
+            <Map
+              locations={locations}
+              selectedProvince={selectedProvince}
+              routePath={routePath}
+              currentLocation={currentLocation}
+            />
+          </div>
+
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {/* Footer Credit */}
+        <footer className="mt-8 py-4 border-t border-gray-200">
+          <div className="text-center text-sm text-gray-600">
+            <p>
+              พัฒนาโดย <span className="font-semibold text-gray-800">นายจักรกฤษณ์ บุตตพักตร์</span> |
+              <a
+                href="https://github.com/JakgritB"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 text-blue-600 hover:text-blue-700"
+              >
+                GitHub
+              </a> |
+            </p>
+            <p className="mt-1 text-xs text-gray-500">
+              © 2025 FindAdd V1.0 - ระบบจัดเส้นทางส่งพัสดุ
+              <br/>
+              Powered by Longdo Map API
+            </p>
+          </div>
+        </footer>
+      </div>
+    </main>
   );
 }
