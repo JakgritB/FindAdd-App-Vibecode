@@ -1,3 +1,5 @@
+import { Province } from '@/types';
+
 export const PROVINCES: Province[] = [
     { code: '41', name: 'อุดรธานี', nameEn: 'Udon Thani', lat: 17.4138, lon: 102.7870 },
     { code: '47', name: 'สกลนคร', nameEn: 'Sakon Nakhon', lat: 17.1545, lon: 104.1348 },
